@@ -19,6 +19,14 @@ class DatabaseSeeder extends Seeder
             'role' => 'admin',
         ]);
 
+        // Doyen User
+        User::create([
+            'name' => 'Doyen User',
+            'email' => 'doyen@univ.edu',
+            'password' => Hash::make('password'),
+            'role' => 'doyen',
+        ]);
+
         $this->call([
             DepartementsTableSeeder::class,
             LieuExamenTableSeeder::class,
@@ -28,7 +36,7 @@ class DatabaseSeeder extends Seeder
             EtudiantsTableSeeder::class, // Creates Users too
             ExamensTableSeeder::class,
         ]);
-        
+
         // Populate Inscriptions (students -> modules)
         // Taking all students and assigning them to random modules of their formation
         $etudiants = \App\Models\Etudiant::with('formation.modules')->get();

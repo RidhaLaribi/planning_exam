@@ -116,9 +116,9 @@ class ExamenController extends Controller
         // Optimized approach: SQL group by student and date
         $studentConflicts = DB::table('inscriptions')
             ->join('examens', 'inscriptions.module_id', '=', 'examens.module_id')
-            ->select('inscriptions.etudiant_id', DB::raw('DATE(examens.date_heure) as exam_date'), DB::raw('count(*) as exam_count'))
+            ->select('inscriptions.etudiant_id', DB::raw('CAST(examens.date_heure AS DATE) as exam_date'), DB::raw('count(*) as exam_count'))
             ->groupBy('inscriptions.etudiant_id', 'exam_date')
-            ->having('exam_count', '>', 1)
+            ->havingRaw('count(*) > 1')
             ->get();
 
         foreach ($studentConflicts as $sc) {

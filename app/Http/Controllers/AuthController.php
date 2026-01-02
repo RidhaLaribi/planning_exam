@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
@@ -14,13 +15,19 @@ class AuthController extends Controller
         $request->validate([
             'email' => 'required|email',
             'password' => 'required',
+            'role' => 'required|string',
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        Log::info('Login attempt', ['email' => $request->email, 'role' => $request->role]);
 
-        if (! $user || ! Hash::check($request->password, $user->password)) {
+        $user = User::where('email', $request->email)->where('role', $request->role)->first();
+
+        Log::info('User found', ['user' => $user ? $user->toArray() : null]);
+
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            Log::error('Login failed - password mismatch or user not found', ['email' => $request->email]);
             throw ValidationException::withMessages([
-                'email' => ['Les identifiants fournis sont incorrects.'],
+                'email' => ['Identifiants ou rôle incorrects.'],
             ]);
         }
 
