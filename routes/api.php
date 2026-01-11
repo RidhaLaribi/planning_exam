@@ -64,4 +64,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/stats', [\App\Http\Controllers\StatsController::class, 'index']);
 
     Route::apiResource('examens', ExamenController::class);
+
+    // Exam Views
+    Route::get('/exams/student', [\App\Http\Controllers\ExamViewController::class, 'student']);
+    Route::get('/exams/professor', [\App\Http\Controllers\ExamViewController::class, 'professor']);
+    Route::get('/exams/admin', [\App\Http\Controllers\ExamViewController::class, 'admin']);
 });

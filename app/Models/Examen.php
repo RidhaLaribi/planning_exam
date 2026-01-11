@@ -16,12 +16,12 @@ class Examen extends Model
         return $this->belongsTo(Module::class);
     }
 
-    public function professeur()
+    public function prof()
     {
         return $this->belongsTo(Professeur::class, 'prof_id');
     }
 
-    public function lieuExamen()
+    public function salle()
     {
         return $this->belongsTo(LieuExamen::class, 'salle_id');
     }
