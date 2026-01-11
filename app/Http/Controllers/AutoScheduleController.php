@@ -17,18 +17,33 @@ class AutoScheduleController extends Controller
 
     public function generate(Request $request)
     {
-        // Increase time limit for this request
-        set_time_limit(120);
+        $jobId = (string) \Illuminate\Support\Str::uuid();
 
-        try {
-            $result = $this->scheduler->generate();
-            return response()->json($result);
-        } catch (\Exception $e) {
-            Log::error('Scheduling failed: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
+        // Init Cache Status (Prevents 404 on immediate poll)
+        \Illuminate\Support\Facades\Cache::put('scheduler_job_' . $jobId, [
+            'status' => 'processing',
+            'progress' => 0,
+            'message' => 'Initializing...'
+        ], 3600);
+
+        // Dispatch Job
+        \App\Jobs\GenerateScheduleJob::dispatch($jobId);
+
+        return response()->json([
+            'success' => true,
+            'jobId' => $jobId,
+            'message' => 'Schedule generation started in background.'
+        ]);
+    }
+
+    public function status($jobId)
+    {
+        $status = \Illuminate\Support\Facades\Cache::get('scheduler_job_' . $jobId);
+
+        if (!$status) {
+            return response()->json(['status' => 'not_found'], 404);
         }
+
+        return response()->json($status);
     }
 }

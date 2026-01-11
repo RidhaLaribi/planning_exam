@@ -35,6 +35,7 @@ class DatabaseSeeder extends Seeder
             ModulesTableSeeder::class, // Depends on Formations
             EtudiantsTableSeeder::class, // Creates Users too
             ExamensTableSeeder::class,
+            TempUserSeeder::class, // Creates Doyen and Dept Head
         ]);
 
         // Populate Inscriptions (students -> modules)

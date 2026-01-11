@@ -12,7 +12,7 @@ return new class extends Migration {
     {
         Schema::create('conflicts', function (Blueprint $table) {
             $table->id();
-            $table->tinyInteger('resolved')->default(0); // boolean
+
 
             // Explicit FKs
             $table->unsignedBigInteger('exam_id');

@@ -15,33 +15,36 @@ class ExamSchedulerService
     private $assignments = [];
     private $slots = [];
 
+    // Optimization: O(1) Lookup Tables
+    private $professorBookings = []; // [prof_id][timestamp] = true
+    private $roomBookings = [];      // [room_id][timestamp] = true
+    private $profDailyCounts = [];   // [prof_id][date] = count
+
     public function generate()
     {
         $startTime = microtime(true);
         DB::disableQueryLog();
 
-        // 1. Fetch Data (Optimized)
+        // 1. Fetch Data
         $this->loadData();
 
         // 2. Build In-Memory Conflict Graph
         $this->buildConflictGraph();
 
-        // 3. Sort Modules (Heuristic: Degree DESC, Size DESC)
+        // 3. Sort Modules
         $sortedModuleIds = $this->sortModules();
 
         // 4. Greedy Assignment Loop
         $schedule = [];
         $scheduledCount = 0;
 
-        // Define Slots (Example: 2 weeks, 8:00-18:00, 2h slots)
-        // This should simpler be configurable. For now, hardcoded standard university slots.
+        // Define Slots
         $this->generateSlots();
 
         foreach ($sortedModuleIds as $moduleId) {
             $module = $this->modules[$moduleId];
             $bestSlot = null;
-            $bestRoom = null;
-            $bestProf = null;
+            $allocations = null;
 
             // Try to find a valid slot
             foreach ($this->slots as $slot) {
@@ -49,35 +52,59 @@ class ExamSchedulerService
                     continue;
                 }
 
-                // Find Best Fit Room
-                $room = $this->findBestRoom($module, $slot, $schedule);
-                if (!$room)
+                // 1. Multi-Room Allocation
+                $selectedRooms = $this->findRoomAllocation($module->student_count, $slot, $schedule);
+                if (empty($selectedRooms)) {
                     continue;
+                }
 
-                // Find Professor
-                $prof = $this->assignProfessor($module, $slot, $schedule);
-                if (!$prof)
-                    continue; // Cannot schedule without prof
+                // 2. Professor Assignment (One per room)
+                $assignedProfs = $this->assignProfessorsForRooms($selectedRooms, $module, $slot, $schedule);
+                if (empty($assignedProfs)) {
+                    // Cannot find enough professors for these rooms
+                    continue;
+                }
 
                 // Success
                 $bestSlot = $slot;
-                $bestRoom = $room;
-                $bestProf = $prof;
-                break; // Take first valid (Greedy)
+
+                // Pair Rooms with Profs
+                $allocations = [];
+                $studentsAssigned = 0;
+                $totalStudents = $module->student_count;
+
+                // Track Bookings (Optimization)
+                foreach ($selectedRooms as $index => $room) {
+                    $prof = $assignedProfs[$index];
+                    $ts = $bestSlot['timestamp'];
+                    $day = $bestSlot['day'];
+
+                    $this->roomBookings[$room->id][$ts] = true;
+                    $this->professorBookings[$prof->id][$ts] = true;
+
+                    if (!isset($this->profDailyCounts[$prof->id][$day])) {
+                        $this->profDailyCounts[$prof->id][$day] = 0;
+                    }
+                    $this->profDailyCounts[$prof->id][$day]++;
+
+                    $allocations[] = [
+                        'salle_id' => $room->id,
+                        'prof_id' => $prof->id,
+                        'capacity' => $room->capacite
+                    ];
+                }
+                break; // Take first valid
             }
 
             if ($bestSlot) {
+                // Save to schedule
                 $schedule[$moduleId] = [
                     'module_id' => $moduleId,
-                    'prof_id' => $bestProf->id,
-                    'salle_id' => $bestRoom->id,
                     'date_heure' => $bestSlot['start'],
+                    'allocations' => $allocations,
                     'duree_minutes' => 120 // Standard 2h
                 ];
                 $scheduledCount++;
-            } else {
-                // Failed to schedule module
-                // Log warning or throw error depending on strictness
             }
         }
 
@@ -232,53 +259,83 @@ class ExamSchedulerService
         return true;
     }
 
-    private function findBestRoom($module, $slot, $schedule)
+    private function findRoomAllocation($studentCount, $slot, $schedule)
     {
-        // Filter rooms that fit student count
-        // Already sorted by capacity ASC
-        foreach ($this->rooms as $room) {
-            if ($room->capacite >= $module->student_count) {
-                // Check if room is free at this slot
-                if (!$this->isRoomBooked($room->id, $slot['start'], $schedule)) {
-                    return $room;
-                }
+        $selectedRooms = [];
+        $currentCapacity = 0;
+
+        // Rooms are already sorted by capacity ASC in loadData
+        // For multi-room, we want to minimize Room Count, so we should try Largest rooms first?
+        // If we use Smallest First, we might use many small rooms.
+        // If we use Largest First, we use fewer rooms.
+        // Requirement: "Select the largest available rooms first"
+
+        // So we need to reverse the rooms list or sort it DESC for this operation
+        // But $this->rooms is shared. Let's make a local copy sorted DESC.
+        $roomsDesc = array_reverse($this->rooms);
+
+        foreach ($roomsDesc as $room) {
+            if ($currentCapacity >= $studentCount) {
+                break;
+            }
+
+            // Check if room is free
+            if (!$this->isRoomBooked($room->id, $slot['start'], $schedule)) {
+                $selectedRooms[] = $room;
+                $currentCapacity += $room->capacite;
             }
         }
-        return null;
+
+        if ($currentCapacity < $studentCount) {
+            return []; // Not enough capacity found
+        }
+
+        return $selectedRooms;
     }
 
     private function isRoomBooked($roomId, $timeStart, $schedule)
     {
-        foreach ($schedule as $s) {
-            if ($s['salle_id'] == $roomId && $s['date_heure'] == $timeStart) {
-                return true;
-            }
-        }
-        return false;
+        // O(1) Optimization
+        $ts = strtotime($timeStart);
+        return isset($this->roomBookings[$roomId][$ts]);
     }
 
-    private function assignProfessor($module, $slot, $schedule)
+    private function assignProfessorsForRooms($rooms, $module, $slot, $schedule)
     {
-        // Filter available professors
-        // Constraints: Not booked at time, Max 3/day
+        $assignedProfs = [];
+        $usedProfIds = [];
 
+        foreach ($rooms as $room) {
+            $prof = $this->findBestProfessor($module, $slot, $schedule, $usedProfIds);
+
+            if (!$prof) {
+                return []; // Fail if we can't staff a room
+            }
+
+            $assignedProfs[] = $prof;
+            $usedProfIds[] = $prof->id;
+        }
+
+        return $assignedProfs;
+    }
+
+    private function findBestProfessor($module, $slot, $schedule, $excludeProfIds = [])
+    {
         $candidates = [];
-        $candidatesData = []; // Store scores for sorting
+        $candidatesData = [];
 
         foreach ($this->professors as $prof) {
+            if (in_array($prof->id, $excludeProfIds))
+                continue;
+
             if ($this->isProfBooked($prof->id, $slot, $schedule))
                 continue;
 
-            // Score
+            // Score Logic
             $score = 0;
-
-            // 1. Soft Constraint: Same Department (+10)
             if (isset($module->dept_id) && isset($prof->dept_id) && $prof->dept_id == $module->dept_id) {
                 $score += 10;
             }
-
-            // 2. Soft Constraint: Fairness/Load Balance (-5 if high load)
-            // Calculate current load
             $currentLoad = $this->getProfTotalLoad($prof->id, $schedule);
             if ($currentLoad > 5) {
                 $score -= 5;
@@ -291,40 +348,34 @@ class ExamSchedulerService
         if (empty($candidates))
             return null;
 
-        // Sort by Score DESC
         usort($candidates, function ($a, $b) use ($candidatesData) {
             return $candidatesData[$b->id] - $candidatesData[$a->id];
         });
 
-        // Return highest scorer
         return $candidates[0];
     }
 
     private function getProfTotalLoad($profId, $schedule)
     {
-        $count = 0;
-        foreach ($schedule as $s) {
-            if ($s['prof_id'] == $profId)
-                $count++;
-        }
-        return $count;
+        // Could be optimized further with a counter array, but let's stick to simple first.
+        // Actually, we can just aggregate daily counts
+        // BUT for now, let's leave this one or optimize it slightly. 
+        // We can add a totalLoad counter.
+        // Let's implement dynamic total load tracking.
+        return array_sum($this->profDailyCounts[$profId] ?? []);
     }
 
     private function isProfBooked($profId, $slot, $schedule)
     {
-        $dailyCount = 0;
-        foreach ($schedule as $s) {
-            if ($s['prof_id'] == $profId) {
-                // Overlap check
-                if ($s['date_heure'] == $slot['start'])
-                    return true;
-
-                // Daily limit check
-                if (date('Y-m-d', strtotime($s['date_heure'])) === $slot['day']) {
-                    $dailyCount++;
-                }
-            }
+        // O(1) Optimization
+        $ts = $slot['timestamp'];
+        if (isset($this->professorBookings[$profId][$ts])) {
+            return true;
         }
+
+        // Daily Limit Check
+        $day = $slot['day'];
+        $dailyCount = $this->profDailyCounts[$profId][$day] ?? 0;
 
         return $dailyCount >= 3;
     }
@@ -336,18 +387,41 @@ class ExamSchedulerService
 
         DB::transaction(function () use ($schedule) {
             // Optional: Clear existing exams?
-            // Examen::truncate(); 
+            Examen::truncate();
 
-            $chunks = array_chunk($schedule, 500); // Batch insert
+            $insertData = [];
             $now = now();
-            foreach ($chunks as $chunk) {
-                // Add timestamps
-                foreach ($chunk as &$record) {
-                    $record['created_at'] = $now;
-                    $record['updated_at'] = $now;
+
+            foreach ($schedule as $moduleId => $data) {
+                $module = $this->modules[$moduleId];
+
+                // Deterministic Student Distribution
+                // Logic for distribution is implied by the exam creation.
+                // We are not storing student-room mapping in specific tables in this iteration,
+                // so we don't need to fetch the student list here.
+
+                // If specific student assignment is needed later, we should batch this or do it separately.
+
+                // Optimization: Removed N+1 query that fetched students but didn't use them.
+
+                // If I am strictly creating `examens` rows:
+                foreach ($data['allocations'] as $alloc) {
+                    $insertData[] = [
+                        'module_id' => $moduleId,
+                        'salle_id' => $alloc['salle_id'],
+                        'prof_id' => $alloc['prof_id'],
+                        'date_heure' => $data['date_heure'],
+                        'duree_minutes' => $data['duree_minutes'],
+                        'created_at' => $now,
+                        'updated_at' => $now
+                    ];
                 }
-                Examen::insert($chunk); // Using Model or DB::table depending on timestamps requirement
             }
-        }, 5); // 5 attempts
+
+            $chunks = array_chunk($insertData, 500);
+            foreach ($chunks as $chunk) {
+                Examen::insert($chunk);
+            }
+        }, 5);
     }
 }

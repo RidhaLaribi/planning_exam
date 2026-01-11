@@ -60,6 +60,8 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::post('/schedule/generate', [\App\Http\Controllers\AutoScheduleController::class, 'generate']);
+    Route::get('/schedule/status/{jobId}', [\App\Http\Controllers\AutoScheduleController::class, 'status']);
+    Route::get('/stats', [\App\Http\Controllers\StatsController::class, 'index']);
 
     Route::apiResource('examens', ExamenController::class);
 });

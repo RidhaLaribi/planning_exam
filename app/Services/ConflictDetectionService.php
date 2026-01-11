@@ -72,7 +72,7 @@ class ConflictDetectionService
             ->join('examens', 'inscriptions.module_id', '=', 'examens.module_id')
             ->select('inscriptions.etudiant_id', DB::raw('CAST(examens.date_heure AS DATE) as exam_date'), DB::raw('count(*) as count'))
             ->groupBy('inscriptions.etudiant_id', 'exam_date')
-            ->havingRaw('count > 1')
+            ->havingRaw('count(*) > 1')
             ->get();
 
         foreach ($studentDailyLoad as $load) {
