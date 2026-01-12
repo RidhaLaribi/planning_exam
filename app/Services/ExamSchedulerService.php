@@ -5,6 +5,7 @@ namespace App\Services;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Models\Examen;
+use App\Models\UnscheduledExam;
 
 class ExamSchedulerService
 {
@@ -20,7 +21,7 @@ class ExamSchedulerService
     private $roomBookings = [];      // [room_id][timestamp] = true
     private $profDailyCounts = [];   // [prof_id][date] = count
 
-    public function generate()
+    public function generate(int $examDays = 12, ?string $startDate = null)
     {
         $startTime = microtime(true);
         DB::disableQueryLog();
@@ -39,7 +40,7 @@ class ExamSchedulerService
         $scheduledCount = 0;
 
         // Define Slots
-        $this->generateSlots();
+        $this->generateSlots($examDays, $startDate);
 
         foreach ($sortedModuleIds as $moduleId) {
             $module = $this->modules[$moduleId];
@@ -111,6 +112,10 @@ class ExamSchedulerService
         // 5. Batch Insert
         $this->persistSchedule($schedule);
 
+        // 6. Handle Unscheduled
+        $unscheduledIds = array_diff($sortedModuleIds, array_keys($schedule));
+        $this->logUnscheduled($unscheduledIds);
+
         return [
             'success' => true,
             'scheduled' => $scheduledCount,
@@ -127,6 +132,7 @@ class ExamSchedulerService
             ->join('formations', 'modules.formation_id', '=', 'formations.id')
             ->select(
                 'modules.id',
+                'modules.nom',
                 'modules.formation_id',
                 'formations.dept_id',
                 DB::raw('count(inscriptions.id) as student_count')
@@ -213,12 +219,15 @@ class ExamSchedulerService
         return $ids;
     }
 
-    private function generateSlots()
+    private function generateSlots(int $days, ?string $startDate = null)
     {
-        // Generate 2 weeks of slots (Excluding weekends ideally, but keeping simple)
+        // Generate Slots (Excluding weekends ideally, but keeping simple)
         // 5 slots per day: 08:30, 10:30, 12:30, 14:30, 16:30
-        $startDate = Carbon::now()->next('Monday');
-        $days = 12; // 2 weeks (6 days/week)
+        if ($startDate) {
+            $startDate = Carbon::parse($startDate);
+        } else {
+            $startDate = Carbon::now()->next('Monday');
+        }
 
         for ($i = 0; $i < $days; $i++) {
             $date = $startDate->copy()->addDays($i);
@@ -388,6 +397,7 @@ class ExamSchedulerService
         DB::transaction(function () use ($schedule) {
             // Optional: Clear existing exams?
             Examen::truncate();
+            // Examen::query()->delete();
 
             $insertData = [];
             $now = now();
@@ -423,5 +433,30 @@ class ExamSchedulerService
                 Examen::insert($chunk);
             }
         }, 5);
+    }
+
+    private function logUnscheduled($moduleIds)
+    {
+        // Clear previous
+        UnscheduledExam::query()->delete();
+
+        if (empty($moduleIds)) return;
+
+        $insertData = [];
+        $now = now();
+
+        foreach ($moduleIds as $id) {
+            $module = $this->modules[$id];
+            $insertData[] = [
+                'module_id' => $id,
+                'nom' => $module->nom,
+                'formation_id' => $module->formation_id,
+                'reason' => 'Constraint violation (No slot/room/prof found)',
+                'created_at' => $now,
+                'updated_at' => $now
+            ];
+        }
+
+        UnscheduledExam::insert($insertData);
     }
 }

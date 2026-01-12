@@ -26,7 +26,7 @@ class DoyenController extends Controller
     {
         // 1. Global KPIs
         $totalExams = Examen::count();
-        $totalConflicts = Conflict::count(); // Maybe filter by resolved?
+        $totalUnscheduled = \App\Models\UnscheduledExam::count();
 
         // Occupancy Rate (Simplistic: exams * duration / total capacity * slots? 
         // Better: sum(duration) / (rooms * working_hours_in_exam_period))
@@ -37,10 +37,8 @@ class DoyenController extends Controller
         $totalCapacityMinutes = $totalRooms * 14 * 8 * 60;
         $occupancyRate = $totalCapacityMinutes > 0 ? ($totalMinutesBooked / $totalCapacityMinutes) * 100 : 0;
 
-        $conflictsByDept = DB::table('conflicts')
-            ->join('examens', 'conflicts.exam_id', '=', 'examens.id')
-            ->join('modules', 'examens.module_id', '=', 'modules.id')
-            ->join('formations', 'modules.formation_id', '=', 'formations.id')
+        $unscheduledByDept = DB::table('unscheduled_exams')
+            ->join('formations', 'unscheduled_exams.formation_id', '=', 'formations.id')
             ->join('departements', 'formations.dept_id', '=', 'departements.id')
             ->select('departements.nom', DB::raw('count(*) as count'))
             ->groupBy('departements.nom')
@@ -56,9 +54,9 @@ class DoyenController extends Controller
             'kpis' => [
                 'total_exams' => $totalExams,
                 'occupancy_rate' => round($occupancyRate, 2),
-                'total_conflicts' => $totalConflicts,
+                'total_unscheduled' => $totalUnscheduled,
             ],
-            'conflicts_by_dept' => $conflictsByDept,
+            'unscheduled_by_dept' => $unscheduledByDept,
             'validation_status' => $globalValidation ? $globalValidation->status : 'draft'
         ]);
     }

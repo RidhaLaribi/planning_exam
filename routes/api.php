@@ -54,10 +54,11 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Chef Departement Routes
-    Route::prefix('chef-departement')->group(function () {
+    Route::middleware('auth:sanctum')->prefix('chef-departement')->group(function () {
         Route::get('dashboard', [ChefDepartementController::class, 'dashboard']);
         Route::post('validate', [ChefDepartementController::class, 'validateSchedule']);
     });
+
 
     Route::post('/schedule/generate', [\App\Http\Controllers\AutoScheduleController::class, 'generate']);
     Route::get('/schedule/status/{jobId}', [\App\Http\Controllers\AutoScheduleController::class, 'status']);

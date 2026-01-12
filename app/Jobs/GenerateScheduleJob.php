@@ -16,8 +16,11 @@ class GenerateScheduleJob implements ShouldQueue
     /**
      * Create a new job instance.
      */
-    public function __construct(public string $jobId)
-    {
+    public function __construct(
+        public string $jobId,
+        public int $examDays = 12,
+        public ?string $startDate = null
+    ) {
         //
     }
 
@@ -39,7 +42,7 @@ class GenerateScheduleJob implements ShouldQueue
             set_time_limit(0);
 
             // 2. Run Generation
-            $result = $scheduler->generate();
+            $result = $scheduler->generate($this->examDays, $this->startDate);
 
             // 3. Update Status: Completed
             Cache::put('scheduler_job_' . $this->jobId, [

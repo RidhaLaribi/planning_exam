@@ -26,8 +26,11 @@ class AutoScheduleController extends Controller
             'message' => 'Initializing...'
         ], 3600);
 
+        $examDays = $request->input('examDays', 12);
+        $startDate = $request->input('startDate'); // optional
+
         // Dispatch Job
-        \App\Jobs\GenerateScheduleJob::dispatch($jobId);
+        \App\Jobs\GenerateScheduleJob::dispatch($jobId, $examDays, $startDate);
 
         return response()->json([
             'success' => true,

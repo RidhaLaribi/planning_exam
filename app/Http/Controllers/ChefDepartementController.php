@@ -18,7 +18,7 @@ class ChefDepartementController extends Controller
         if (!$user) {
             return response()->json(['error' => 'Unauthenticated'], 401);
         }
-
+       
         $prof = DB::table('professeurs')->where('user_id', $user->id)->first();
         if (!$prof) {
             return response()->json(['error' => 'User not linked to a department.'], 403);
@@ -30,19 +30,19 @@ class ChefDepartementController extends Controller
             $q->where('dept_id', $deptId);
         })->count();
 
-        // Conflicts in this dept
-        $conflicts = Conflict::whereHas('exam.module.formation', function ($q) use ($deptId) {
+        // Unscheduled Exams in this dept
+        $unscheduled = \App\Models\UnscheduledExam::whereHas('formation', function ($q) use ($deptId) {
             $q->where('dept_id', $deptId);
-        })->get();
+        })->with('formation')->get();
 
         $validation = ExamValidation::where('department_id', $deptId)->first();
 
         return response()->json([
             'stats' => [
                 'total_exams' => $deptExamsCount,
-                'total_conflicts' => $conflicts->count(),
+                'total_unscheduled' => $unscheduled->count(),
             ],
-            'conflicts' => $conflicts,
+            'unscheduled' => $unscheduled,
             'validation_status' => $validation ? $validation->status : 'draft'
         ]);
     }

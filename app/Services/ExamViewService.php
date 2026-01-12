@@ -78,6 +78,10 @@ class ExamViewService
             }
         }
 
+        usort($myExams, function ($a, $b) {
+            return strtotime($a->date_heure) - strtotime($b->date_heure);
+        });
+
         return $myExams;
     }
 
