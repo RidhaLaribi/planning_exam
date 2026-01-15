@@ -23,7 +23,7 @@ class StatsController extends Controller
                 'totalUnscheduled' => UnscheduledExam::count(),
                 'occupancyRate' => self::calculateOccupancy(),
                 'examsByDept' => self::getExamsByDept(),
-                'examsByDept' => self::getExamsByDept(),
+
                 'unscheduledByReason' => self::getUnscheduledByReason(),
                 'recentSchedules' => self::getRecentSchedules()
             ]
@@ -35,7 +35,7 @@ class StatsController extends Controller
         // Get validation status for each department
         // If no validation record exists, we can assume 'Draft' if exams exist?
         // For now, let's return actual validation records joined with departments.
-        
+
         $validations = DB::table('exam_validations')
             ->join('departements', 'exam_validations.department_id', '=', 'departements.id')
             ->join('users', 'exam_validations.validated_by', '=', 'users.id')
@@ -47,12 +47,12 @@ class StatsController extends Controller
             )
             ->orderBy('exam_validations.updated_at', 'desc')
             ->get();
-            
+
         // Also, if there are departments with exams but NO validation record, show them as 'Draft'
         // This is a bit more complex query. Let's simplify: return validations.
         // If the table is empty, frontend will show empty.
         // We can seed some data or just let it be.
-        
+
         return $validations;
     }
 

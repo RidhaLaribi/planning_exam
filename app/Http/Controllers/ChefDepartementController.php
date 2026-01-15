@@ -18,7 +18,7 @@ class ChefDepartementController extends Controller
         if (!$user) {
             return response()->json(['error' => 'Unauthenticated'], 401);
         }
-       
+
         $prof = DB::table('professeurs')->where('user_id', $user->id)->first();
         if (!$prof) {
             return response()->json(['error' => 'User not linked to a department.'], 403);
@@ -66,5 +66,24 @@ class ChefDepartementController extends Controller
         );
 
         return response()->json(['message' => 'Department schedule validated.']);
+    }
+
+    public function invalidateSchedule(Request $request)
+    {
+        $user = Auth::user();
+        $prof = DB::table('professeurs')->where('user_id', $user->id)->first();
+        if (!$prof)
+            return response()->json(['error' => 'No department found.'], 403);
+
+        $val = DB::table('exam_validations')->where('department_id', $prof->dept_id)->first();
+
+        if ($val && $val->status === 'validated_chef') {
+            DB::table('exam_validations')
+                ->where('department_id', $prof->dept_id)
+                ->update(['status' => 'draft', 'updated_at' => now()]);
+            return response()->json(['message' => 'Validation cancelled.']);
+        }
+
+        return response()->json(['error' => 'Cannot cancel validation (already published or not found).'], 400);
     }
 }

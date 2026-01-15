@@ -44,13 +44,13 @@ class TempUserSeeder extends Seeder
 
         // Ensure Doyen user
         User::firstOrCreate(
-            ['email' => 'doyen@univ.edu'],
+            ['email' => 'doyen1@univ.edu'],
             [
                 'name' => 'Doyen User',
                 'password' => Hash::make('password'),
                 'role' => 'doyen'
             ]
         );
-        $this->command->info('Doyen created: doyen@univ.edu / password');
+        $this->command->info('Doyen created: doyen1@univ.edu / password');
     }
 }

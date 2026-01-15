@@ -168,6 +168,7 @@ class LargeScaleSeeder extends Seeder
         // Get their IDs
         // Insert 500 profs linked to IDs
         // Create Admin and Doyen first
+        // ... (Previous Admin/Doyen creation) ...
         DB::table('users')->insert([
             [
                 'name' => 'Admin User',
@@ -183,21 +184,46 @@ class LargeScaleSeeder extends Seeder
                 'email' => 'doyen@univ.edu',
                 'email_verified_at' => $now,
                 'password' => $password,
-                'role' => 'doyen', // Make sure 'doyen' is valid enum if we changed things? 
-                // Schema has 'doyen'.
+                'role' => 'doyen',
                 'created_at' => $now,
                 'updated_at' => $now
-            ],
-            [
-                'name' => 'Dept Head User',
-                'email' => 'deptchef@univ.edu',
+            ]
+        ]);
+
+        // Create Chef de Departement for EACH department
+        $chefProfs = [];
+        // We know $deptIds matches $deptNames order because we inserted them that way and IDs usually increment
+        // But to be safe, let's just fetch them with names
+        $deptRecords = DB::table('departements')->select('id', 'nom')->get();
+
+        foreach ($deptRecords as $dept) {
+            $emailName = strtolower(str_replace(' ', '', $dept->nom)); // informatique
+            $email = "chef_{$emailName}@univ.edu";
+
+            // Insert User
+            $userId = DB::table('users')->insertGetId([
+                'name' => "Chef " . $dept->nom,
+                'email' => $email,
                 'email_verified_at' => $now,
                 'password' => $password,
                 'role' => 'department_head',
                 'created_at' => $now,
                 'updated_at' => $now
-            ]
-        ]);
+            ]);
+
+            // Prepare Prof record
+            $chefProfs[] = [
+                'user_id' => $userId,
+                'dept_id' => $dept->id,
+                'nom' => "Chef " . $dept->nom,
+                'specialite' => "Gestion " . $dept->nom,
+                'created_at' => $now,
+                'updated_at' => $now
+            ];
+
+            $this->command->info("Created Chef: $email (Pwd: password)");
+        }
+        DB::table('professeurs')->insert($chefProfs);
 
         $baseEmail = 'prof' . uniqid();
         $userBatches = [];
@@ -228,6 +254,8 @@ class LargeScaleSeeder extends Seeder
             ];
         }
         DB::table('professeurs')->insert($profData);
+
+
 
 
         // 6. Students (~13,000)

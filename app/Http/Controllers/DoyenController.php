@@ -97,4 +97,19 @@ class DoyenController extends Controller
 
         return response()->json(['message' => 'Global schedule validated.']);
     }
+
+    public function invalidateSchedule(Request $request)
+    {
+        // Check current status
+        $val = DB::table('exam_validations')->whereNull('department_id')->first();
+
+        if ($val && $val->status === 'validated_doyen') {
+            DB::table('exam_validations')
+                ->whereNull('department_id')
+                ->update(['status' => 'draft', 'updated_at' => now()]);
+            return response()->json(['message' => 'Validation cancelled.']);
+        }
+
+        return response()->json(['error' => 'Cannot cancel validation (already published or not found).'], 400);
+    }
 }

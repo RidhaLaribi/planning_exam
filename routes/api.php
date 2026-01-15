@@ -20,7 +20,10 @@ use App\Http\Controllers\ChefDepartementController;
 */
 
 // Public Routes
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login', [AuthController::class, 'login'])->name('login');
+Route::get('/login', function () {
+    return response()->json(['message' => 'Unauthenticated.'], 401);
+});
 
 // Protected Routes - TODO: Re-enable auth:sanctum middleware in production
 // Protected Routes
@@ -50,6 +53,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('dashboard', [DoyenController::class, 'dashboard']);
         Route::get('schedule', [DoyenController::class, 'schedule']);
         Route::post('validate', [DoyenController::class, 'validateSchedule']);
+        Route::post('invalidate', [DoyenController::class, 'invalidateSchedule']);
         Route::post('detect-conflicts', [DoyenController::class, 'detectConflicts']);
     });
 
@@ -57,12 +61,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('auth:sanctum')->prefix('chef-departement')->group(function () {
         Route::get('dashboard', [ChefDepartementController::class, 'dashboard']);
         Route::post('validate', [ChefDepartementController::class, 'validateSchedule']);
+        Route::post('invalidate', [ChefDepartementController::class, 'invalidateSchedule']);
     });
 
 
     Route::post('/schedule/generate', [\App\Http\Controllers\AutoScheduleController::class, 'generate']);
     Route::get('/schedule/status/{jobId}', [\App\Http\Controllers\AutoScheduleController::class, 'status']);
-    Route::get('/stats', [\App\Http\Controllers\StatsController::class, 'index']);
+    Route::get('/dashboard-stats', [\App\Http\Controllers\StatsController::class, 'index']);
 
     Route::apiResource('examens', ExamenController::class);
 
