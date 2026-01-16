@@ -258,13 +258,13 @@ class LargeScaleSeeder extends Seeder
 
 
 
-        // 6. Students (~13,000)
-        $this->command->info('Creating Students (13k)...');
+        // 6. Students (~50)
+        $this->command->info('Creating Students (50)...');
         // Batch insert Users first
         $studentUserBatches = [];
         $batchSize = 1000;
 
-        for ($i = 0; $i < 13000; $i++) {
+        for ($i = 0; $i < 50; $i++) {
             $studentUserBatches[] = [
                 'name' => "Student $i",
                 'email' => "s{$i}@etu.univ.edu",
