@@ -4,8 +4,7 @@ nixPkgs = ["php82", "php82Packages.composer", "php82Extensions.dom", "php82Exten
 [phases.build]
 cmds = [
     "composer install --no-dev --optimize-autoloader",
-    "npm install",
-    "npm run build"
+    
 ]
 
 [start]
