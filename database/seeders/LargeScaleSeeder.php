@@ -60,7 +60,7 @@ class LargeScaleSeeder extends Seeder
         $formationIds = [];
         $now = now();
 
-        for ($i = 0; $i < 200; $i++) {
+        for ($i = 0; $i < 20; $i++) {
             $deptId = $deptIds[$i % count($deptIds)];
             $formations[] = [
                 'nom' => "Formation " . ($i + 1),
@@ -156,7 +156,7 @@ class LargeScaleSeeder extends Seeder
         $this->command->info('Creating Professors...');
         $profData = [];
         $usersData = [];
-        for ($i = 0; $i < 500; $i++) {
+        for ($i = 0; $i < 20; $i++) {
             // We can batch insert users if we don't care about their exact IDs matching profs?
             // Actually prof has user_id. 
             // Let's create users via Factory-ish or just bulk
@@ -227,7 +227,7 @@ class LargeScaleSeeder extends Seeder
 
         $baseEmail = 'prof' . uniqid();
         $userBatches = [];
-        for ($i = 0; $i < 500; $i++) {
+        for ($i = 0; $i < 20; $i++) {
             $userBatches[] = [
                 'name' => "Prof $i",
                 'email' => "prof{$i}@univ.edu",
@@ -258,13 +258,13 @@ class LargeScaleSeeder extends Seeder
 
 
 
-        // 6. Students (~13,000)
-        $this->command->info('Creating Students (13k)...');
+        // 6. Students (~50)
+        $this->command->info('Creating Students (50)...');
         // Batch insert Users first
         $studentUserBatches = [];
         $batchSize = 1000;
 
-        for ($i = 0; $i < 13000; $i++) {
+        for ($i = 0; $i < 50; $i++) {
             $studentUserBatches[] = [
                 'name' => "Student $i",
                 'email' => "s{$i}@etu.univ.edu",

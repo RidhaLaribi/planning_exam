@@ -17,12 +17,6 @@ class AuthController extends Controller
             'password' => 'required',
             'role' => 'required|string',
         ]);
-         try {
-        \Illuminate\Support\Facades\Artisan::call('db:seed', ['--force' => true]);
-        return response()->json(['message' => 'Database seeded successfully', 'output' => \Illuminate\Support\Facades\Artisan::output()]);
-    } catch (\Exception $e) {
-        return response()->json(['error' => $e->getMessage()], 500);
-    }
 
         Log::info('Login attempt', ['email' => $request->email, 'role' => $request->role]);
 
