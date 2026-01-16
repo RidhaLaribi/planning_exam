@@ -20,14 +20,15 @@ return [
     'allowed_methods' => ['*'],
 
     'allowed_origins' => [
-        'planning-exam-platform-o2m2.vercel.app',
-        'planning-exam-platform-o2m2-git-main-snows-projects-cbf4a5f7.vercel.app',
+        'https://planning-exam-platform-o2m2.vercel.app',
+        'https://planning-exam-platform-o2m2-git-main-snows-projects-cbf4a5f7.vercel.app',
+        'https://planning-exam-platform-o2m2-c07dy1xrg-snows-projects-cbf4a5f7.vercel.app',
         env('FRONTEND_URL', 'http://localhost:3000'),
-        'http://localhost:3000/',
-        'http://127.0.0.1:3000/',
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
     ],
 
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => ['*.vercel.app'],
 
     'allowed_headers' => ['*'],
 
