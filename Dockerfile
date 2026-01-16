@@ -30,4 +30,4 @@ RUN npm install && npm run build || true
 EXPOSE 8080
 
 # Start app
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8080"]
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
