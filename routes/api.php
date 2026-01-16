@@ -28,7 +28,6 @@ Route::get('/login', function () {
 // Temporary Seeding Route
 Route::get('/seed', function () {
     try {
-        \Illuminate\Support\Facades\Artisan::call('db:seed', ['--force' => true]);
         return response()->json(['message' => 'Database seeded successfully', 'output' => \Illuminate\Support\Facades\Artisan::output()]);
     } catch (\Exception $e) {
         return response()->json(['error' => $e->getMessage()], 500);
