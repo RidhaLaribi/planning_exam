@@ -30,4 +30,11 @@ RUN npm install && npm run build || true
 EXPOSE 8080
 
 # Start app
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+# Install Supervisor
+RUN apt-get install -y supervisor
+
+# Copy Supervisor configuration
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Start Supervisor
+CMD ["/usr/bin/supervisord"]
